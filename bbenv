@@ -1,0 +1,91 @@
+#!/bin/bash
+
+bb_env_path="/bb"
+if [[ "${1}" =~ --path ]]; then
+    bb_env_path=$2
+fi
+
+if ! [[ -d "${bb_env_path}" ]]; then
+    mkdir -p "${bb_env_path}"
+    (
+        cd "${bb_env_path}"
+
+        if ! (which busybox-static); then
+            curl -o ./busybox \
+                https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox
+            chmod 755 busybox
+        else
+            cp $(which busybox-static) ./busybox
+        fi
+
+        if ! (which micro); then
+            wget https://github.com/zyedidia/micro/releases/download/v2.0.14/micro-2.0.14-linux64.tgz
+            tar -xzf micro-2.0.14-linux64.tgz micro-2.0.14/micro
+            mv micro-2.0.14/micro ./
+            rm -rf micro-2.0.14*
+        else
+            cp $(which micro) ./micro
+        fi
+
+        ./busybox --install ./
+
+        {
+            # echo '#!/bin/sh'
+            echo 'NEW_PATH="${PATH}:/bb/bin"'
+            echo ''
+            echo 'alias m="micro -colorscheme geany"'
+            echo ''
+            echo 'if [ "$1" = "strict" ]; then'
+            echo '  NEW_PATH="/bb/bin:${PATH}"'
+            echo '  shift'
+            echo 'fi'
+            echo 'if [ "$1" = "inv" ]; then'
+            echo '  shift'
+            echo '  export PATH="$NEW_PATH"'
+            echo '  "$@"'
+            echo 'fi'
+            echo 'export PATH="$NEW_PATH"'
+            echo 'unset NEW_PATH'
+            echo 'case "$0" in'
+            echo '  *bbenv_init)'
+            echo '    echo "run \"source $0\" or \". $0\" if not doing so"'
+            echo '    ;;'
+            echo 'esac'
+        } > ./bbenv_init
+        chmod 755 ./bbenv_init
+
+        {
+            echo 'repo=${1%.git}'
+            echo '${BBENV_PATH}/bin/wget -O ${repo##*/}.zip ${repo}/archive/refs/heads/master.zip'
+            echo '${BBENV_PATH}/bin/unzip -q ${repo##*/}.zip'
+        } > ./bbgc
+        chmod 755 ./bbgc
+    )
+fi
+
+export BBENV_PATH=${bb_env_path}
+export BBENV_DPATH="/bb/"
+export BBENV_DSH="/bb/bin/sh"
+# export BBENV_D='-v '${bb_env_path}':/bb/bin/:ro -e BBENV_PATH='${BBENV_DPATH}' -e BBENV_SH='${BBENV_DSH}' -e BBENV_INIT=PATH=${PATH}:/bb/bin -e BBENV_INIT_STRICT="export\ PATH=/bb/bin:\${PATH}"'
+
+### USE THE CURRENT MODEL: MOUNT AND INIT IT USING A SCRIPT. NO NEED TO PASS INIT CMDS. ALSO ADD `bbenv -- sh` OR IMILAR AS CMD TO SETUP ENV AND INVOKE SHELL
+export BBENV_D=(
+    "-v" "${bb_env_path}:/bb/bin/:ro"
+    "-v" "${bb_env_path}/bbenv_init:/bin/bbenv_init:ro"
+    "-e" "BBENV_PATH=${BBENV_DPATH}"
+    "-e" "BBENV_SH=${BBENV_DSH}"
+    # "-e" "BBENV_INIT=export PATH=\${PATH}:/bb/bin"
+    # "-e" "BBENV_INIT_STRICT=export PATH=/bb/bin:\${PATH}"
+)
+
+case "$1" in
+    delete|rm|del|x)
+        rm -rf "${bb_env_path}";
+        echo "Removed ${bb_env_path}";
+        ;;
+    d|docker)
+        echo "${BBENV_D[@]}";
+        ;;
+    invoke|inv|i)
+        PATH=${PATH}:${bb_env_path}
+esac
