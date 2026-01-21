@@ -1,16 +1,30 @@
 #!/bin/bash
-# run: bash ci2.sh
 
-# TODO: [ ] Planned, [+] InProgress, [x] Done, [-] Dropped, [^] Important
-
-# [ ] Add parallel runs. Hell na it needs db as file.
+# USAGE: example: Copy below comment to a file and run it.
+# === my_ci.sh === #
+# #!/bin/bash
+#
+# source ci.sh
+#
+# job=mjob1 needs=mjob2 \
+# sched && {
+#     echo Job 1
+# }
+#
+# job=mjob2 \
+# sched && {
+#     echo Job 2
+# }
+#
+# job=mjob3 needs=mjob2,mjob1 \
+# sched && {
+#     echo Job 3
+# }
+# ========== #
 
 SCRIPT="$(realpath "$0")"
 
-
-# set -x
-
-# job|needs|status
+# schema: job|needs|status
 db=""
 sched() {
     ${ran_one:-false} && exit 0
